@@ -32,7 +32,7 @@
     body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.65 var(--sans); }
     a { color: inherit; text-underline-offset: 4px; text-decoration-thickness: 1px; }
     a:hover { text-decoration-thickness: 2px; }
-    a:focus-visible, summary:focus-visible {
+    a:focus-visible, summary:focus-visible, button:focus-visible {
       outline: 3px solid var(--clay);
       outline-offset: 5px;
       border-radius: 3px;
@@ -133,6 +133,18 @@
     .footer-inner { padding-block: 23px; display: flex; justify-content: space-between; gap: 20px; color: var(--muted); font-size: 11px; }
     .footer-inner p { margin: 0; }
     .footer-inner a { color: var(--green); }
+    [hidden] { display: none !important; }
+    .preference-link { padding: 0; border: 0; background: none; color: var(--green); font: inherit; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+    .privacy { padding-bottom: 24px; color: var(--muted); font-size: 12px; }
+    .privacy summary { color: var(--green); }
+    .privacy p { max-width: 800px; }
+    .consent-card { position: fixed; bottom: 20px; left: 20px; z-index: 20; width: min(590px, calc(100% - 40px)); padding: 23px; border: 1px solid var(--line); border-radius: 12px; background: var(--white); box-shadow: 0 8px 40px #153e3826; }
+    .consent-card h2 { margin-bottom: 10px; font-size: 25px; }
+    .consent-card p { margin: 0 0 15px; color: var(--muted); font-size: 13px; }
+    .consent-card .actions { gap: 12px; }
+    .consent-card button { cursor: pointer; }
+    .consent-card .button { min-width: 145px; }
+    .consent-card .consent-status { margin-top: 12px; margin-bottom: 0; color: var(--clay); }
     @media (max-width: 1000px) {
       .hero { gap: 35px; padding-block: 60px; }
       .project-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -176,7 +188,7 @@
       .site-header { position: static; }
       body { background: white; color: black; font-size: 10pt; }
       .wrap { width: 100%; }
-      nav, .skip { display: none; }
+      nav, .skip, .consent-card, .preference-link { display: none; }
       .hero { padding-block: 20px; gap: 30px; }
       h1 { font-size: 35pt; }
       .section { padding-block: 25px; }
@@ -462,8 +474,177 @@
   <footer>
     <div class="wrap footer-inner">
       <p>&copy; 2026 Wendy Ondigo. Built for the web, with the work in the open.</p>
-      <p><a href="https://github.com/OndigoWendy/OndigoWendy.github.io">Website source</a> &nbsp;&middot;&nbsp; <a href="#top">Back to top &uarr;</a></p>
+      <p><a href="https://github.com/OndigoWendy/OndigoWendy.github.io">Website source</a> &nbsp;&middot;&nbsp; <a href="#privacy">Privacy</a> &nbsp;&middot;&nbsp; <button class="preference-link" id="analytics-preferences" type="button" hidden>Analytics preferences</button> &nbsp;&middot;&nbsp; <a href="#top">Back to top &uarr;</a></p>
     </div>
+    <details class="wrap privacy" id="privacy">
+      <summary>Privacy and optional analytics</summary>
+      <p>This portfolio uses Google Analytics 4 only after you allow analytics. It measures page visits and clicks on GitHub, LinkedIn, and project links, using cookies and pseudonymous browser identifiers. Advertising storage, advertising personalization, and Google signals are disabled in this site's configuration.</p>
+      <p>The site does not ask analytics to collect your name, email, or GitHub/LinkedIn account identity. Google processes technical and usage information under its <a href="https://policies.google.com/privacy">Privacy Policy</a>; these reports are not a list of identifiable profile visitors.</p>
+      <p>Your Allow/Decline choice is stored in this browser until you change it or clear browser storage. Use Analytics preferences to change it. Withdrawing consent disables collection and clears accessible Google Analytics cookies; the page reloads to unload the tag when your browser can save the new preference. This does not delete data already received by Google.</p>
+      <p id="analytics-summary">Analytics has not loaded.</p>
+      <noscript><p>JavaScript is disabled, so Google Analytics does not run.</p></noscript>
+    </details>
   </footer>
+
+  <aside class="consent-card" id="analytics-consent" aria-labelledby="consent-heading" tabindex="-1" hidden>
+    <h2 id="consent-heading">Allow optional analytics?</h2>
+    <p>Help me understand which projects people explore. With your permission, Google Analytics uses cookies to measure visits and outbound-link clicks. The portfolio works fully if you decline.</p>
+    <div class="actions">
+      <button class="button" id="analytics-allow" type="button">Allow analytics</button>
+      <button class="button secondary" id="analytics-decline" type="button">Decline analytics</button>
+      <a href="#privacy">Privacy details</a>
+    </div>
+    <p class="consent-status" id="analytics-status" role="status" aria-live="polite"></p>
+  </aside>
+  <script id="portfolio-analytics">
+    (() => {
+      const measurementId = "G-9HECLKGLBY";
+      const preferenceKey = "wendy-portfolio-analytics-v1";
+      const disabledKey = "ga-disable-" + measurementId;
+      const banner = document.getElementById("analytics-consent");
+      const status = document.getElementById("analytics-status");
+      const summary = document.getElementById("analytics-summary");
+      const preferences = document.getElementById("analytics-preferences");
+      const denied = {
+        analytics_storage: "denied",
+        ad_storage: "denied",
+        ad_user_data: "denied",
+        ad_personalization: "denied"
+      };
+      let tagLoaded = false;
+      let choice = null;
+      window[disabledKey] = true;
+      window.dataLayer = window.dataLayer || [];
+      window.gtag = function () { window.dataLayer.push(arguments); };
+      window.gtag("consent", "default", denied);
+
+      function storageUnavailable(error) {
+        if (!(error instanceof DOMException) ||
+            !["SecurityError", "QuotaExceededError"].includes(error.name)) {
+          throw error;
+        }
+        status.textContent = "Your browser could not save analytics preferences. Your choice applies only to this page visit.";
+      }
+
+      function readChoice() {
+        try {
+          const value = window.localStorage.getItem(preferenceKey);
+          return value === "granted" || value === "denied" ? value : null;
+        } catch (error) {
+          storageUnavailable(error);
+          return null;
+        }
+      }
+
+      function saveChoice(value) {
+        try {
+          window.localStorage.setItem(preferenceKey, value);
+          return true;
+        } catch (error) {
+          storageUnavailable(error);
+          return false;
+        }
+      }
+
+      function startAnalytics() {
+        if (choice !== "granted" || window.location.hostname !== "ondigowendy.github.io") return;
+        window[disabledKey] = false;
+        window.gtag("consent", "update", { ...denied, analytics_storage: "granted" });
+        if (tagLoaded) return;
+        tagLoaded = true;
+        const referrer = document.referrer ? new URL(document.referrer) : null;
+        window.gtag("js", new Date());
+        window.gtag("config", measurementId, {
+          allow_google_signals: false,
+          allow_ad_personalization_signals: false,
+          cookie_domain: "ondigowendy.github.io",
+          cookie_flags: "SameSite=Lax;Secure",
+          page_location: window.location.origin + window.location.pathname,
+          page_referrer: referrer ? referrer.origin + referrer.pathname : ""
+        });
+        const tag = document.createElement("script");
+        tag.async = true;
+        tag.src = "https://www.googletagmanager.com/gtag/js?id=" + measurementId;
+        tag.onerror = () => {
+          if (choice === "granted") {
+            summary.textContent = "You allowed analytics, but its script could not load. The portfolio still works normally.";
+          }
+        };
+        document.head.appendChild(tag);
+      }
+
+      function clearAnalyticsCookies() {
+        // GA can create host-only or domain cookies, so both need clearing after withdrawal.
+        for (const cookie of document.cookie.split(";")) {
+          const name = cookie.split("=")[0].trim();
+          if (name !== "_ga" && !name.startsWith("_ga_")) continue;
+          const expired = name + "=; Max-Age=0; Path=/; SameSite=Lax; Secure";
+          document.cookie = expired;
+          document.cookie = expired + "; Domain=" + window.location.hostname;
+          document.cookie = expired + "; Domain=." + window.location.hostname;
+        }
+      }
+
+      function applyChoice(value, persist = true) {
+        choice = value;
+        const saved = !persist || saveChoice(value);
+        if (persist && saved) status.textContent = "";
+        window[disabledKey] = value !== "granted";
+        banner.hidden = value !== null && saved;
+        summary.textContent = value === "granted"
+          ? "Your current preference: analytics allowed. Browser or network blockers may still prevent collection."
+          : value === "denied"
+            ? "Your current preference: analytics declined."
+            : "Analytics stays off unless you choose Allow analytics.";
+        if (value === "granted") {
+          startAnalytics();
+        } else {
+          window.gtag("consent", "update", denied);
+          clearAnalyticsCookies();
+          // Reloading unloads an already-authorized tag instead of leaving it active after withdrawal.
+          if (tagLoaded && saved) window.location.reload();
+        }
+      }
+
+      document.getElementById("analytics-allow").addEventListener("click", () => applyChoice("granted"));
+      document.getElementById("analytics-decline").addEventListener("click", () => applyChoice("denied"));
+      preferences.hidden = false;
+      preferences.addEventListener("click", () => {
+        banner.hidden = false;
+        banner.focus({ preventScroll: true });
+      });
+      document.querySelectorAll('a[href="#privacy"]').forEach(link => {
+        link.addEventListener("click", () => { document.getElementById("privacy").open = true; });
+      });
+      window.addEventListener("storage", event => {
+        if (event.key === preferenceKey || event.key === null) applyChoice(readChoice(), false);
+      });
+      document.addEventListener("click", event => {
+        if (choice !== "granted" || window[disabledKey] || !(event.target instanceof Element)) return;
+        const link = event.target.closest("a[href]");
+        if (!link) return;
+        const url = new URL(link.href, window.location.href);
+        if (!["github.com", "www.linkedin.com"].includes(url.hostname)) return;
+        let category = "github_repository";
+        if (url.hostname === "www.linkedin.com") category = "linkedin_profile";
+        else if (url.pathname.replace(/\/$/, "") === "/OndigoWendy") {
+          category = url.searchParams.get("tab") === "repositories" ? "repository_list" : "github_profile";
+        } else if (url.pathname.startsWith("/OndigoWendy/OndigoWendy.github.io")) {
+          category = "website_source";
+        }
+        const project = link.closest(".project");
+        if (project) category = "project";
+        window.gtag("event", "portfolio_link_click", {
+          send_to: measurementId,
+          link_url: url.origin + url.pathname,
+          link_domain: url.hostname,
+          link_category: category,
+          project_name: project ? project.querySelector("h3").textContent.trim() : ""
+        });
+      });
+
+      applyChoice(readChoice(), false);
+    })();
+  </script>
 </body>
 </html>
